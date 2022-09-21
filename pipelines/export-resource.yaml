@@ -29,12 +29,12 @@ stages:
             enabled: true
             displayName: 'Connect to Azure Account'
             inputs:
-              filePath: 'devops/scripts/all-runbooks.ps1'
+              filePath: 'export-resource.ps1'
               arguments: '-ConnectAzure -ResourceGroupName ${{ parameters.ResourceGroupName }} -ServicePrincipalName $(client-id) -ServicePrincipalPass $(client-secret) -SubscriptionId $(subscriptionid) -TenantId $(tenantid)'
 
           - task: PowerShell@2
             enabled: true
             displayName: 'Export Template'
             inputs:
-              filePath: 'devops/scripts/all-runbooks.ps1'
+              filePath: 'export-resource.ps1'
               arguments: '-ExportResource -tag ${{ parameters.tag }}'
