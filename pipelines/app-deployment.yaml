@@ -1,0 +1,122 @@
+name: $(BuildDefinitionName)_$(date:yyyyMMdd)$(rev:.r)
+
+trigger: none
+pr: none
+
+pool:
+  name: Code-Challenge-Agent-Pool
+  demands:
+    - agent.name -equals code-challenge
+
+variables:
+  - name: azureSubscriptionEndpoint
+    value: 'Code-Challenge-ARM-SC'
+  - name: azureResourceGroup
+    value: 'code-challenge-rg'
+  - name: kubernetesClusterSc
+    value: 'code-challenge-aks'
+  - name: imageRepository
+    value: 'spring-boot'
+  - name: dockerRegistryServiceConnection
+    value: 'code-challenge-docker'
+  - name: containerRegistry
+    value: demoenvchnacracr.azurecr.io
+  - name: dockerfilePath
+    value: '$(Build.SourcesDirectory)/Dockerfile'
+  - name: secretName
+    value: 'imagepullsecret'
+  - name: k8sNamespace
+    value: 'default'
+  - group: azure-keyvault-vg
+
+stages:
+
+  - stage: Build_Artifcats
+    jobs:
+      - job: 
+        steps:
+        - task: Maven@3
+          inputs:
+            mavenPomFile: 'pom.xml'
+            goals: 'package'
+            publishJUnitResults: true
+            testResultsFiles: '**/surefire-reports/TEST-*.xml'
+            javaHomeOption: 'JDKVersion'
+            mavenVersionOption: 'Default'
+            mavenAuthenticateFeed: false
+            effectivePomSkip: false
+            sonarQubeRunAnalysis: false
+
+        - task: PublishBuildArtifacts@1
+          enabled: false
+          inputs:
+            PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+            ArtifactName: 'drop'
+            publishLocation: 'Container'
+
+        - task: CopyFiles@2
+          enabled: false
+          displayName: 'Copy k8s manifest files '
+          inputs:
+            SourceFolder: '$(System.DefaultWorkingDirectory)/k8s-manifests'
+            TargetFolder: '~/'
+            CleanTargetFolder: true
+
+        - task: PublishPipelineArtifact@1
+          enabled: false
+          displayName: 'Publish Artifact: k8s manifest'
+          inputs:
+            targetPath: '~/'
+            artifact: 'manifests'
+  
+  - stage: Deployment
+    displayName: App Deployment
+    jobs:
+    - deployment: Deployment
+      displayName: App Deployment
+      environment:
+        name: 'demo'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+
+            - task: DownloadPipelineArtifact@2
+              enabled: false
+              displayName: 'Download Pipeline Artifact'
+              inputs:
+                buildType: current
+                name: manifets
+
+            - task: Docker@2
+              displayName: Build and push aDockern image to container registry
+              inputs:
+                command: buildAndPush
+                repository: $(imageRepository)
+                dockerfile: $(dockerfilePath)
+                containerRegistry: $(dockerRegistryServiceConnection)
+                tags: |
+                  latest
+
+            - task: KubernetesManifest@0
+              enabled: true
+              displayName: Deploy to Kubernetes cluster
+              inputs:
+                action: 'deploy'
+                kubernetesServiceConnection: '$(kubernetesClusterSc)'
+                namespace: '$(k8sNamespace)'
+                manifests: |
+                  k8s-manifests/spring-boot/deployment.yaml
+                  k8s-manifests/spring-boot/service.yaml
+                  k8s-manifests/spring-boot/configmap.yaml
+                  k8s-manifests/spring-boot/secret.yaml
+                  k8s-manifests/mongo/deployment.yaml
+                  k8s-manifests/mongo/service.yaml
+                  k8s-manifests/mongo/pv.yaml
+                  k8s-manifests/mongo/pvc.yaml
+                  k8s-manifests/ingress.yaml
+                containers: '$(containerRegistry)/$(imageRepository):latest'
+                imagePullSecrets: '$(secretName)'
+                
+
+            

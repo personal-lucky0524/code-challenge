@@ -1,0 +1,40 @@
+pool:
+  vmImage: 'ubuntu-latest'
+
+trigger: none
+pr: none
+
+parameters:
+  - name: resourceGroupName
+    displayName: "Enter Resource Group Name"
+    type: string
+    default: dev-env-rg
+  - name: tag
+    type: string
+    default: Createdby
+    values: 
+      - Createdby
+
+variables:
+  - group: azure-keyvault-vg
+
+stages:
+  - stage: Export_Resource
+    displayName: 'Export Resource Template'
+    jobs:
+      - job: Export_Resource
+        displayName: 'Export Resource Template'
+        steps:
+          - task: PowerShell@2
+            enabled: true
+            displayName: 'Connect to Azure Account'
+            inputs:
+              filePath: 'devops/scripts/all-runbooks.ps1'
+              arguments: '-ConnectAzure -ResourceGroupName ${{ parameters.ResourceGroupName }} -ServicePrincipalName $(client-id) -ServicePrincipalPass $(client-secret) -SubscriptionId $(subscriptionid) -TenantId $(tenantid)'
+
+          - task: PowerShell@2
+            enabled: true
+            displayName: 'Export Template'
+            inputs:
+              filePath: 'devops/scripts/all-runbooks.ps1'
+              arguments: '-ExportResource -tag ${{ parameters.tag }}'

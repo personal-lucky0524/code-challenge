@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spring-boot
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    -  host: "code-challenge-8dd0c0cb.hcp.southindia.azmk8s.io"
+       http:
+         paths:
+           - pathType: Prefix
+             path: "/springboot"
+             backend:
+               service:
+                 name: springapp
+                 port:
+                   number: 8080

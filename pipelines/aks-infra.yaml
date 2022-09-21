@@ -1,0 +1,93 @@
+name: $(BuildDefinitionName)_$(date:yyyyMMdd)$(rev:.r)
+
+trigger: none
+pr: none
+
+pool:
+  name: Code-Challenge-Agent-Pool
+  demands:
+    - agent.name -equals code-challenge
+
+parameters:
+  - name: Action
+    displayName: Action
+    type: string
+    default: 'Plan'
+    values:
+    - Validate
+    - Plan
+    - Apply
+    - Destroy
+
+variables:
+  - name: backendServiceArm
+    value: 'Code-Challenge-ARM-SC'
+  - name: backendAzureRmResourceGroupName
+    value: 'demo-env-rg'
+  - name: backendAzureRmStorageAccountName
+    value: 'demoenvsa'
+  - name: backendAzureRmContainerName
+    value: 'tfstate'
+  - name: backendAzureRmKey
+    value: 'terraform.tfstate'
+  - name: environment
+    value: 'demo'
+  - name: terraform_version
+    value: '1.2.9'
+  - name: action
+    value: ${{ parameters.Action }}
+
+stages :   
+  - stage: Terraform_Talidate
+    condition: eq('${{ parameters.Action }}', 'Validate')
+    jobs:
+      - template: templates/terraform-validate.yaml
+        parameters:
+          backendServiceArm: ${{ variables.backendServiceArm }}
+          backendAzureRmResourceGroupName: ${{ variables.backendAzureRmResourceGroupName }}
+          backendAzureRmStorageAccountName: ${{ variables.backendAzureRmStorageAccountName }}
+          backendAzureRmContainerName: ${{ variables.backendAzureRmContainerName }}
+          backendAzureRmKey: ${{ variables.backendAzureRmKey }}
+          environment: ${{ variables.environment }}
+          terraform_version: ${{ variables.terraform_version }}
+
+  - stage: Terraform_Plan
+    # dependsOn: [terraform_validate]
+    condition: eq('${{ parameters.Action }}', 'Plan')
+    jobs:
+      - template: templates/terraform-plan.yaml
+        parameters:
+          backendServiceArm: ${{ variables.backendServiceArm }}
+          backendAzureRmResourceGroupName: ${{ variables.backendAzureRmResourceGroupName }}
+          backendAzureRmStorageAccountName: ${{ variables.backendAzureRmStorageAccountName }}
+          backendAzureRmContainerName: ${{ variables.backendAzureRmContainerName }}
+          backendAzureRmKey: ${{ variables.backendAzureRmKey }}
+          environment: ${{ variables.environment }}
+          terraform_version: ${{ variables.terraform_version }}
+
+  - stage: Terraform_Apply
+    # dependsOn: [terraform_plan]
+    condition: eq('${{ parameters.Action }}', 'Apply')
+    jobs:
+      - template: templates/terraform-apply.yaml
+        parameters:
+          backendServiceArm: ${{ variables.backendServiceArm }}
+          backendAzureRmResourceGroupName: ${{ variables.backendAzureRmResourceGroupName }}
+          backendAzureRmStorageAccountName: ${{ variables.backendAzureRmStorageAccountName }}
+          backendAzureRmContainerName: ${{ variables.backendAzureRmContainerName }}
+          backendAzureRmKey: ${{ variables.backendAzureRmKey }}
+          environment: ${{ variables.environment }}
+          terraform_version: ${{ variables.terraform_version }}
+
+  - stage: Terraform_Destroy
+    condition: eq('${{ parameters.Action }}', 'Destroy')
+    jobs:
+      - template: templates/terraform-destroy.yaml
+        parameters:
+          backendServiceArm: ${{ variables.backendServiceArm }}
+          backendAzureRmResourceGroupName: ${{ variables.backendAzureRmResourceGroupName }}
+          backendAzureRmStorageAccountName: ${{ variables.backendAzureRmStorageAccountName }}
+          backendAzureRmContainerName: ${{ variables.backendAzureRmContainerName }}
+          backendAzureRmKey: ${{ variables.backendAzureRmKey }}
+          environment: ${{ variables.environment }}
+          terraform_version: ${{ variables.terraform_version }}
